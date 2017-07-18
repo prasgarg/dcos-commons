@@ -20,10 +20,11 @@ def extract_uris(file_name):
     matcher = re.compile(".*https?:\/\/([^\/\?]*)", re.IGNORECASE)
     matches = []
     for line in lines:
+        line = line.strip()
         # Do not grab comments
         if line.startswith("*") or line.startswith("#") or line.startswith("//"):
             continue
-        # Do not grab "id" lines
+        # Do not grab "id" lines from config.json.
         if "\"id\":" in line:
             continue
 
