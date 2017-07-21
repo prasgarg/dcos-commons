@@ -13,10 +13,6 @@ pods:
       - {{BOOTSTRAP_URI}}
       {{#KEYTABS_URI}}- {{KEYTABS_URI}}{{/KEYTABS_URI}}
     {{#ENABLE_VIRTUAL_NETWORK}}
-    volume:
-      path: journal-data
-      size: {{JOURNAL_DISK}}
-      type: {{JOURNAL_DISK_TYPE}}
     networks:
       {{VIRTUAL_NETWORK_NAME_JOURNAL}}:
         labels: {{CNI_PLUGIN_LABELS_JOURNAL}}
@@ -29,6 +25,10 @@ pods:
               ./bootstrap && ./{{HDFS_VERSION}}/bin/hdfs journalnode
         cpus: {{JOURNAL_CPUS}}
         memory: {{JOURNAL_MEM}}
+        volume:
+          path: journal-data
+          size: {{JOURNAL_DISK}}
+          type: {{JOURNAL_DISK_TYPE}}
         ports:
           journal-rpc:
             port: {{TASKCFG_ALL_JOURNAL_NODE_RPC_PORT}}
