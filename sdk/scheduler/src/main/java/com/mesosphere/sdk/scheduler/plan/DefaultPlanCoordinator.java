@@ -85,7 +85,7 @@ public class DefaultPlanCoordinator extends ChainedObserver implements PlanCoord
                 dirtiedAssets.addAll(planManager.getDirtyAssets());
                 LOGGER.info("Updated dirtied assets: {}", dirtiedAssets);
             } catch (Throwable t) {
-                LOGGER.error(String.format("Error with plan manager: %s.", planManager), t);
+                LOGGER.error("Error with plan manager: {}. {}", planManager, t.getStackTrace());
             }
 
             // Filter out dirtied offers, and only present unused offers to the next PlanManager.
