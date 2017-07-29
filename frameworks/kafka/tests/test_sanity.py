@@ -19,7 +19,7 @@ from tests.config import *
 
 DEFAULT_TOPIC_NAME = 'topic1'
 EPHEMERAL_TOPIC_NAME = 'topic_2'
-FOLDERED_SERVICE_NAME = sdk_utils.get_foldered_name(PACKAGE_NAME)
+FOLDERED_SERVICE_NAME = "{}-sanity-tests".format(sdk_utils.get_foldered_name(PACKAGE_NAME))
 ZK_SERVICE_PATH = sdk_utils.get_zk_path(PACKAGE_NAME)
 
 

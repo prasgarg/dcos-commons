@@ -127,24 +127,9 @@ def get_package_options(additional_options={}):
     if os.environ.get('SECURITY', '') == 'strict':
         # strict mode requires correct principal and secret to perform install.
         # see also: tools/setup_permissions.sh and tools/create_service_account.sh
-        return _merge_dictionary(additional_options, {
+        return sdk_utils.merge_dictionaries(additional_options, {
             'service': { 'principal': 'service-acct', 'secret_name': 'secret',
                          'mesos_api_version': 'V0'}
         })
     else:
         return additional_options
-
-
-def _merge_dictionary(dict1, dict2):
-    if (not isinstance(dict2, dict)):
-        return dict1
-    ret = {}
-    for k, v in dict1.items():
-        ret[k] = v
-    for k, v in dict2.items():
-        if (k in dict1 and isinstance(dict1[k], dict)
-            and isinstance(dict2[k], collections.Mapping)):
-            ret[k] = _merge_dictionary(dict1[k], dict2[k])
-        else:
-            ret[k] = dict2[k]
-    return ret

@@ -2,31 +2,35 @@ import os
 import pytest
 import shakedown
 
-import sdk_install as install
+import sdk_install
 import sdk_tasks
 import sdk_plan
 import sdk_networks
 import sdk_utils
 
-
 from tests.test_utils import  *
+
+SERVICE_NAME = "{}-overlay-tests".format(SERVICE_NAME)
 
 @pytest.fixture(scope='module', autouse=True)
 def configure_package(configure_universe):
     try:
-        install.uninstall(SERVICE_NAME, PACKAGE_NAME)
+        sdk_install.uninstall(SERVICE_NAME, PACKAGE_NAME)
         sdk_utils.gc_frameworks()
 
-        install.install(
+        sdk_install.install(
             PACKAGE_NAME,
             DEFAULT_BROKER_COUNT,
             service_name=SERVICE_NAME,
-            additional_options=sdk_networks.ENABLE_VIRTUAL_NETWORKS_OPTIONS)
+            additional_options=sdk_utils.merge_dictionaries(
+                { "service": { "name": SERVICE_NAME } },
+                sdk_networks.ENABLE_VIRTUAL_NETWORKS_OPTIONS
+            )
         sdk_plan.wait_for_completed_deployment(PACKAGE_NAME)
 
         yield # let the test session execute
     finally:
-        install.uninstall(SERVICE_NAME, PACKAGE_NAME)
+        sdk_install.uninstall(SERVICE_NAME, PACKAGE_NAME)
 
 
 @pytest.mark.overlay

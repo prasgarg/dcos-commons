@@ -1,24 +1,24 @@
 import pytest
-import sdk_install as install
+import sdk_install
 import sdk_test_upgrade
-import sdk_utils as utils
+import sdk_utils
 
-from tests.test_utils import (
+from tests.utils import (
     PACKAGE_NAME,
-    DEFAULT_BROKER_COUNT,
-    SERVICE_NAME
+    DEFAULT_BROKER_COUNT
 )
 
+SERVICE_NAME = "{}-upgrade-tests".format(PACKAGE_NAME)
 
 @pytest.fixture(scope='module', autouse=True)
 def configure_package(configure_universe):
     try:
-        install.uninstall(PACKAGE_NAME)
-        utils.gc_frameworks()
+        sdk_install.uninstall(PACKAGE_NAME)
+        sdk_utils.gc_frameworks()
 
         yield # let the test session execute
     finally:
-        install.uninstall(SERVICE_NAME)
+        sdk_install.uninstall(SERVICE_NAME)
 
 
 @pytest.mark.upgrade
@@ -27,13 +27,15 @@ def configure_package(configure_universe):
 def test_upgrade_downgrade():
     options = {
         "service": {
+            "name": SERVICE_NAME,
             "beta-optin": True,
             "user":"root"
         }
     }
-    sdk_test_upgrade.upgrade_downgrade("beta-{}".format(PACKAGE_NAME),
-                                       PACKAGE_NAME, DEFAULT_BROKER_COUNT,
-                                       additional_options=options)
+    sdk_test_upgrade.upgrade_downgrade(
+            "beta-{}".format(PACKAGE_NAME),
+            PACKAGE_NAME, DEFAULT_BROKER_COUNT,
+            additional_options=options)
 
 
 @pytest.mark.soak_upgrade

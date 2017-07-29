@@ -70,3 +70,18 @@ dcos_1_9_or_higher = pytest.mark.skipif('shakedown.dcos_version_less_than("1.9")
 dcos_1_10_or_higher = pytest.mark.skipif('shakedown.dcos_version_less_than("1.10")',
                                          reason="Feature only supported in DC/OS 1.10 and up")
 
+
+def merge_dictionaries(dict1, dict2):
+    if (not isinstance(dict2, dict)):
+        return dict1
+    ret = {}
+    for k, v in dict1.items():
+        ret[k] = v
+    for k, v in dict2.items():
+        if (k in dict1 and isinstance(dict1[k], dict)
+            and isinstance(dict2[k], collections.Mapping)):
+            ret[k] = merge_dictionaries(dict1[k], dict2[k])
+        else:
+            ret[k] = dict2[k]
+    return ret
+

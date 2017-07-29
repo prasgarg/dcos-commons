@@ -3,7 +3,7 @@ import pytest
 import sdk_install
 import sdk_marathon
 import sdk_tasks
-import sdk_utils as utils
+import sdk_utils
 from tests.test_utils import (
     PACKAGE_NAME,
     SERVICE_NAME,
@@ -15,12 +15,14 @@ from tests.test_utils import (
 STATIC_PORT_OPTIONS_DICT = {"brokers": {"port": 9092}}
 DYNAMIC_PORT_OPTIONS_DICT = {"brokers": {"port": 0}}
 
+SERVICE_NAME = "{}-ports-tests".format(SERVICE_NAME)
+
 
 @pytest.fixture(scope='module', autouse=True)
 def configure_package(configure_universe):
     try:
         sdk_install.uninstall(SERVICE_NAME, PACKAGE_NAME)
-        utils.gc_frameworks()
+        sdk_utils.gc_frameworks()
 
         yield # let the test session execute
     finally:
@@ -32,7 +34,10 @@ def test_dynamic_port_comes_online():
     sdk_install.install(PACKAGE_NAME,
                     DEFAULT_BROKER_COUNT,
                     service_name=SERVICE_NAME,
-                    additional_options=DYNAMIC_PORT_OPTIONS_DICT)
+                    additional_options={
+                        "service": { "name": SERVICE_NAME },
+                        DYNAMIC_PORT_OPTIONS_DICT
+                    })
     sdk_tasks.check_running(SERVICE_NAME, DEFAULT_BROKER_COUNT)
     sdk_install.uninstall(SERVICE_NAME, PACKAGE_NAME)
 
@@ -42,7 +47,10 @@ def test_static_port_comes_online():
     sdk_install.install(PACKAGE_NAME,
                     DEFAULT_BROKER_COUNT,
                     service_name=SERVICE_NAME,
-                    additional_options=STATIC_PORT_OPTIONS_DICT)
+                    additional_options={
+                        "service": { "name": SERVICE_NAME },
+                        STATIC_PORT_OPTIONS_DICT
+                    })
 
     sdk_tasks.check_running(SERVICE_NAME, DEFAULT_BROKER_COUNT)
     # static config continues to be used in the following tests:
