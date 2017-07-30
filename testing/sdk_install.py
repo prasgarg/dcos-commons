@@ -1,7 +1,5 @@
 '''Utilities relating to installing services'''
 
-import collections
-
 import dcos.errors
 import dcos.marathon
 import os

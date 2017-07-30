@@ -3,6 +3,7 @@ import sys
 import dcos
 import shakedown
 import pytest
+import collections
 
 def out(msg):
     '''Emit an informational message on test progress during test runs'''

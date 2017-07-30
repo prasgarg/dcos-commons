@@ -32,14 +32,16 @@ def check_task_network(task_name, expected_network_name="dcos"):
                         .format(task=task_name, status=status)
 
 
-def get_and_test_endpoints(endpoint_to_get, package_name, correct_count):
+def get_and_test_endpoints(endpoint_to_get, package_name, correct_count, service_name=None):
     """Gets the endpoints for a service or the specified 'endpoint_to_get' similar to running
     $ docs <service> endpoints
     or
     $ dcos <service> endpoints <endpoint_to_get>
     Checks that there is the correct number of endpoints"""
+    if service_name is None:
+        service_name = package_name
 
-    endpoints, _, rc = shakedown.run_dcos_command("{} endpoints {}".format(package_name, endpoint_to_get))
+    endpoints, _, rc = shakedown.run_dcos_command("{} --name={} endpoints {}".format(package_name, service_name, endpoint_to_get))
     assert rc == 0, "Failed to get endpoints on overlay network"
     endpoints = json.loads(endpoints)
     assert len(endpoints) == correct_count, "Wrong number of endpoints, got {} should be {}" \

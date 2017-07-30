@@ -8,7 +8,7 @@ from tests.utils import (
     DEFAULT_BROKER_COUNT
 )
 
-SERVICE_NAME = "{}-upgrade-tests".format(PACKAGE_NAME)
+SERVICE_NAME = "test/upgrade/{}".format(PACKAGE_NAME)
 
 @pytest.fixture(scope='module', autouse=True)
 def configure_package(configure_universe):
@@ -35,7 +35,9 @@ def test_upgrade_downgrade():
     sdk_test_upgrade.upgrade_downgrade(
             "beta-{}".format(PACKAGE_NAME),
             PACKAGE_NAME, DEFAULT_BROKER_COUNT,
-            additional_options=options)
+            additional_options=options,
+            service_name=SERVICE_NAME,
+            reinstall_test_version=False)
 
 
 @pytest.mark.soak_upgrade

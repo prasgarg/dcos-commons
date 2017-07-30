@@ -4,7 +4,7 @@ import sdk_install
 import sdk_marathon
 import sdk_tasks
 import sdk_utils
-from tests.test_utils import (
+from tests.utils import (
     PACKAGE_NAME,
     SERVICE_NAME,
     DEFAULT_BROKER_COUNT,
@@ -15,7 +15,7 @@ from tests.test_utils import (
 STATIC_PORT_OPTIONS_DICT = {"brokers": {"port": 9092}}
 DYNAMIC_PORT_OPTIONS_DICT = {"brokers": {"port": 0}}
 
-SERVICE_NAME = "{}-ports-tests".format(SERVICE_NAME)
+SERVICE_NAME = "test/ports/{}".format(SERVICE_NAME)
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -34,10 +34,10 @@ def test_dynamic_port_comes_online():
     sdk_install.install(PACKAGE_NAME,
                     DEFAULT_BROKER_COUNT,
                     service_name=SERVICE_NAME,
-                    additional_options={
-                        "service": { "name": SERVICE_NAME },
+                    additional_options=sdk_utils.merge_dictionaries(
+                        { "service": { "name": SERVICE_NAME } },
                         DYNAMIC_PORT_OPTIONS_DICT
-                    })
+                    ))
     sdk_tasks.check_running(SERVICE_NAME, DEFAULT_BROKER_COUNT)
     sdk_install.uninstall(SERVICE_NAME, PACKAGE_NAME)
 
@@ -47,10 +47,10 @@ def test_static_port_comes_online():
     sdk_install.install(PACKAGE_NAME,
                     DEFAULT_BROKER_COUNT,
                     service_name=SERVICE_NAME,
-                    additional_options={
-                        "service": { "name": SERVICE_NAME },
+                    additional_options=sdk_utils.merge_dictionaries(
+                        { "service": { "name": SERVICE_NAME } },
                         STATIC_PORT_OPTIONS_DICT
-                    })
+                    ))
 
     sdk_tasks.check_running(SERVICE_NAME, DEFAULT_BROKER_COUNT)
     # static config continues to be used in the following tests:
@@ -65,10 +65,10 @@ def test_port_static_to_static_port():
     config = sdk_marathon.get_config(SERVICE_NAME)
 
     for broker_id in range(DEFAULT_BROKER_COUNT):
-        result = service_cli('broker get {}'.format(broker_id))
+        result = service_cli('broker get {}'.format(broker_id), service_name=SERVICE_NAME)
         assert result['port'] == 9092
 
-    result = service_cli('endpoints broker')
+    result = service_cli('endpoints broker', service_name=SERVICE_NAME)
     assert len(result['address']) == DEFAULT_BROKER_COUNT
     assert len(result['dns']) == DEFAULT_BROKER_COUNT
 
@@ -84,7 +84,7 @@ def test_port_static_to_static_port():
     # all tasks are running
     sdk_tasks.check_running(SERVICE_NAME, DEFAULT_BROKER_COUNT)
 
-    result = service_cli('endpoints broker')
+    result = service_cli('endpoints broker', service_name=SERVICE_NAME)
     assert len(result['address']) == DEFAULT_BROKER_COUNT
     assert len(result['dns']) == DEFAULT_BROKER_COUNT
 
@@ -109,10 +109,10 @@ def test_port_static_to_dynamic_port():
     sdk_tasks.check_running(SERVICE_NAME, DEFAULT_BROKER_COUNT)
 
     for broker_id in range(DEFAULT_BROKER_COUNT):
-        result = service_cli('broker get {}'.format(broker_id))
+        result = service_cli('broker get {}'.format(broker_id), service_name=SERVICE_NAME)
         assert result['port'] != 9092
 
-    result = service_cli('endpoints broker')
+    result = service_cli('endpoints broker', service_name=SERVICE_NAME)
     assert len(result['address']) == DEFAULT_BROKER_COUNT
     assert len(result['dns']) == DEFAULT_BROKER_COUNT
 
@@ -151,10 +151,10 @@ def test_can_adjust_config_from_dynamic_to_static_port():
     sdk_tasks.check_running(SERVICE_NAME, DEFAULT_BROKER_COUNT)
 
     for broker_id in range(DEFAULT_BROKER_COUNT):
-        result = service_cli('broker get {}'.format(broker_id))
+        result = service_cli('broker get {}'.format(broker_id), service_name=SERVICE_NAME)
         assert result['port'] == 9092
 
-    result = service_cli('endpoints broker')
+    result = service_cli('endpoints broker', service_name=SERVICE_NAME)
     assert len(result['address']) == DEFAULT_BROKER_COUNT
     assert len(result['dns']) == DEFAULT_BROKER_COUNT
 

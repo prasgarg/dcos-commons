@@ -2,7 +2,7 @@ import pytest
 import urllib
 
 import sdk_hosts
-import sdk_install as install
+import sdk_install
 import sdk_marathon
 import sdk_plan
 import sdk_tasks
@@ -14,21 +14,21 @@ import dcos.config
 import dcos.http
 import shakedown
 
-from tests.test_utils import *
+from tests.utils import *
 from tests.config import *
 
 DEFAULT_TOPIC_NAME = 'topic1'
 EPHEMERAL_TOPIC_NAME = 'topic_2'
-FOLDERED_SERVICE_NAME = "{}-sanity-tests".format(sdk_utils.get_foldered_name(PACKAGE_NAME))
+FOLDERED_SERVICE_NAME = sdk_utils.get_foldered_name(PACKAGE_NAME)
 ZK_SERVICE_PATH = sdk_utils.get_zk_path(PACKAGE_NAME)
 
 
 @pytest.fixture(scope='module', autouse=True)
 def configure_package(configure_universe):
     try:
-        install.uninstall(FOLDERED_SERVICE_NAME, package_name=PACKAGE_NAME)
+        sdk_install.uninstall(FOLDERED_SERVICE_NAME, package_name=PACKAGE_NAME)
         sdk_utils.gc_frameworks()
-        install.install(
+        sdk_install.install(
             PACKAGE_NAME,
             DEFAULT_BROKER_COUNT,
             service_name=FOLDERED_SERVICE_NAME,
@@ -37,7 +37,7 @@ def configure_package(configure_universe):
 
         yield # let the test session execute
     finally:
-        install.uninstall(FOLDERED_SERVICE_NAME, package_name=PACKAGE_NAME)
+        sdk_install.uninstall(FOLDERED_SERVICE_NAME, package_name=PACKAGE_NAME)
 
 
 # --------- Endpoints -------------
