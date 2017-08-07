@@ -6,6 +6,9 @@ E.G. py.test frameworks/<your-frameworks>/tests
 """
 import logging
 import os
+import subprocess
+
+import pytest
 
 
 log_level = os.getenv('TEST_LOG_LEVEL', 'INFO').upper()
@@ -24,3 +27,14 @@ assert log_level in log_levels, '{} is not a valid log level. ' \
 logging.basicConfig(
     format='[%(asctime)s|%(name)s|%(levelname)s]: %(message)s',
     level=log_level)
+
+
+@pytest.fixture(scope='session', autouse=True)
+def configure_cli():
+    if os.getenv('CLUSTER_URL'):
+        subprocess.check_call([
+            'dcos', 'config', 'set', 'core.dcos_url', os.getenv('CLUSTER_URL')
+        ])
+        subprocess.check_call([
+            'dcos', 'config', 'set', 'core.ssl_verify', 'false'
+        ])
