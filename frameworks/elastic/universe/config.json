@@ -12,8 +12,8 @@
         },
         "secret_name": {
           "description": "Name of the Secret Store credentials to use for DC/OS service authentication. This should be left empty unless service authentication is needed.",
-          "type":"string",
-          "default":""
+          "type": "string",
+          "default": ""
         },
         "user": {
           "description": "The user that runs the Elasticsearch services and owns the Mesos sandbox.",
