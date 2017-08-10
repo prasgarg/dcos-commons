@@ -219,7 +219,7 @@ public class DefaultService implements Service {
 
         List<String> roles = getRoles(serviceSpec);
         if (roles.size() == 1) {
-            fwkInfoBuilder.setRole(roles.get(0));
+            fwkInfoBuilder.setRole("/this/role/will/fail"); // DO NOT MERGE
         } else {
             fwkInfoBuilder.addCapabilities(Protos.FrameworkInfo.Capability.newBuilder()
                     .setType(Protos.FrameworkInfo.Capability.Type.MULTI_ROLE));
