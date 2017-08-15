@@ -2,7 +2,6 @@ package com.mesosphere.sdk.scheduler.plan;
 
 import com.mesosphere.sdk.scheduler.DefaultObservable;
 import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -109,7 +108,8 @@ public abstract class AbstractStep extends DefaultObservable implements Step {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        // Avoid using ReflectionToStringBuilder: It pulls in all of our observers, which leads to very long output...
+        return String.format("%s(name=%s,status=%s)", getClass().getSimpleName(), getName(), getStatus());
     }
 
     @Override

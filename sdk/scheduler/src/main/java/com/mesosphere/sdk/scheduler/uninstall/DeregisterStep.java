@@ -1,5 +1,6 @@
 package com.mesosphere.sdk.scheduler.uninstall;
 
+import com.google.protobuf.TextFormat;
 import com.mesosphere.sdk.offer.OfferRecommendation;
 import com.mesosphere.sdk.scheduler.plan.AbstractStep;
 import com.mesosphere.sdk.scheduler.plan.PodInstanceRequirement;
@@ -74,6 +75,6 @@ public class DeregisterStep extends AbstractStep {
 
     @Override
     public void update(Protos.TaskStatus status) {
+        logger.debug("Step {} ignoring irrelevant TaskStatus: {}", getName(), TextFormat.shortDebugString(status));
     }
-
 }

@@ -1,3 +1,7 @@
 {
-  "message": "Received cmd: restart"
+  "message": "Received cmd: restart",
+  "elements": [
+    { "name": "foo", "id": "some-id" },
+    { "name": "bar", "id": "other-id" }
+  ]
 }

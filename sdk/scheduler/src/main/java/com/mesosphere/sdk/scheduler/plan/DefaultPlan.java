@@ -1,7 +1,6 @@
 package com.mesosphere.sdk.scheduler.plan;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import com.mesosphere.sdk.scheduler.ChainedObserver;
 import com.mesosphere.sdk.scheduler.Observable;
 import com.mesosphere.sdk.scheduler.plan.strategy.SerialStrategy;
@@ -74,7 +73,14 @@ public class DefaultPlan extends ChainedObserver implements Plan {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        // Try to produce something that's easier to read than what ReflectionToStringBuilder produces
+        return String.format("%s{name=%s,status=%s,errors=%s,strategy=%s,children=%s}",
+                getClass().getSimpleName(),
+                getName(),
+                getStatus(),
+                getErrors(),
+                getStrategy().getClass().getSimpleName(),
+                getChildren());
     }
 
     @Override

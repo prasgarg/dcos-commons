@@ -10,6 +10,8 @@ import com.mesosphere.sdk.scheduler.plan.Status;
 
 import org.apache.mesos.Protos;
 
+import static com.mesosphere.sdk.offer.Constants.TOMBSTONE_MARKER;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -20,17 +22,21 @@ import java.util.Optional;
  */
 public class UninstallStep extends AbstractStep {
 
+    private final String resourceId;
+
     /**
      * Creates a new instance with the provided {@code resourceId} and initial {@code status}.
      */
-    public UninstallStep(String resourceId, Status status) {
-        super(resourceId, status);
+    public UninstallStep(String resourceId) {
+        // Avoid having the step name be a pure UUID. Otherwise PlansResource will confuse this UUID with the step UUID:
+        super("unreserve-" + resourceId, resourceId.startsWith(TOMBSTONE_MARKER) ? Status.COMPLETE : Status.PENDING);
+        this.resourceId = resourceId;
     }
 
     @Override
     public Optional<PodInstanceRequirement> start() {
         if (getStatus().equals(Status.PENDING)) {
-            logger.info("Setting state to Prepared for resource {}", getName());
+            logger.info("Setting state to Prepared for resource {}", resourceId);
             setStatus(Status.PREPARED);
         }
 
@@ -52,9 +58,9 @@ public class UninstallStep extends AbstractStep {
                 .map(UninstallRecommendation::getResource)
                 .map(ResourceUtils::getResourceId)
                 .filter(uninstallResourceId -> uninstallResourceId.isPresent())
-                .anyMatch(uninstallResourceId -> getName().equals(uninstallResourceId.get()));
+                .anyMatch(uninstallResourceId -> resourceId.equals(uninstallResourceId.get()));
         if (isMatched) {
-            logger.info("Completed uninstall step for resource {}", getName());
+            logger.info("Completed uninstall step for resource {}", resourceId);
             setStatus(Status.COMPLETE);
         }
     }

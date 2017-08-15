@@ -21,7 +21,7 @@ public class UninstallStepTest extends DefaultCapabilitiesTestSuite {
 
     @Before
     public void beforeEach() throws Exception {
-        uninstallStep = new UninstallStep(RESOURCE_ID, Status.PENDING);
+        uninstallStep = new UninstallStep(RESOURCE_ID);
     }
 
     @Test

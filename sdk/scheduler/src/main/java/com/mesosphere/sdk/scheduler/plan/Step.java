@@ -15,7 +15,7 @@ import java.util.Optional;
  * <p>
  * See {@link Plan} docs for more background.
  */
-public interface Step extends Element, Interruptible {
+public interface Step extends Element {
     /**
      * Starts the Step, whose {@link Status} should be {@link Status#PENDING}. Returns an
      * {@link PodInstanceRequirement}, or an empty Optional if obtaining/updating resource requirements are not

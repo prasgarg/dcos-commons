@@ -15,7 +15,7 @@ import java.util.UUID;
  * have Strategies (see: {@link Strategy} associated with them which describe when child elements should be presented as
  * candidates for execution.
  */
-public interface Element extends Observable {
+public interface Element extends Observable, Interruptible {
     /**
      * Returns the unique identifier of this Element.
      */

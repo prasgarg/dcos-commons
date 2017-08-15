@@ -1,3 +1,7 @@
 {
-  "message": "Received cmd: continue"
+  "message": "Received cmd: continue",
+  "elements": [
+    { "name": "foo", "id": "some-id" },
+    { "name": "bar", "id": "other-id" }
+  ]
 }

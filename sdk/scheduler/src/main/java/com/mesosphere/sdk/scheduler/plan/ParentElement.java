@@ -17,7 +17,7 @@ import static com.mesosphere.sdk.scheduler.plan.PlanUtils.anyHaveStatus;
  *
  * @param <C> the type of the child elements
  */
-public interface ParentElement<C extends Element> extends Element, Interruptible {
+public interface ParentElement<C extends Element> extends Element {
     static final Logger LOGGER = LoggerFactory.getLogger(ParentElement.class);
 
     /**

@@ -1,3 +1,7 @@
 {
-  "message": "Received cmd: interrupt"
+  "message": "Received cmd: interrupt",
+  "elements": [
+    { "name": "foo", "id": "some-id" },
+    { "name": "bar", "id": "other-id" }
+  ]
 }
