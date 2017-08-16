@@ -150,19 +150,6 @@ func (suite *PlanTestSuite) TestMultipleVariablesAreMarshaledToJSON() {
 	assert.Equal(suite.T(), string(expectedParameters), result)
 }
 
-func (suite *PlanTestSuite) TestParseJSONResponse() {
-	valid := []byte(`{"message":"Hi!"}`)
-	assert.True(suite.T(), parseJSONResponse(valid))
-
-	validJSONInvalidResponse := []byte(`{"not-a-valid-key":"Nope!"}`)
-	assert.False(suite.T(), parseJSONResponse(validJSONInvalidResponse))
-
-	invalidJSON := []byte(`{"message":"Lost a bracket!"`)
-	expectedOutput := "Could not decode response: unexpected end of JSON input\n"
-	assert.False(suite.T(), parseJSONResponse(invalidJSON))
-	assert.Equal(suite.T(), expectedOutput, suite.capturedOutput.String())
-}
-
 func (suite *PlanTestSuite) TestGetQuery() {
 	query := getQueryWithPhaseAndStep("test-phase", "test-step")
 	assert.Equal(suite.T(), "test-phase", query.Get("phase"))
@@ -172,7 +159,7 @@ func (suite *PlanTestSuite) TestGetQuery() {
 func (suite *PlanTestSuite) TestForceComplete() {
 	suite.responseBody = suite.loadFile("testdata/responses/scheduler/force-complete.json")
 	suite.responseStatus = http.StatusOK
-	forceComplete("deploy", "hello", "hello-0:[server]")
+	forceComplete("deploy", "hello", "hello-0:[server]", false)
 	expectedOutput := "\"deploy\" plan: step \"hello-0:[server]\" in phase \"hello\" has been forced to complete.\n"
 	assert.Equal(suite.T(), expectedOutput, suite.capturedOutput.String())
 }
@@ -180,7 +167,7 @@ func (suite *PlanTestSuite) TestForceComplete() {
 func (suite *PlanTestSuite) TestForceRestart() {
 	suite.responseBody = suite.loadFile("testdata/responses/scheduler/restart.json")
 	suite.responseStatus = http.StatusOK
-	restart("deploy", "hello", "hello-0:[server]")
+	restart("deploy", "hello", "hello-0:[server]", false)
 	expectedOutput := "\"deploy\" plan: step \"hello-0:[server]\" in phase \"hello\" has been restarted.\n"
 	assert.Equal(suite.T(), expectedOutput, suite.capturedOutput.String())
 }
@@ -190,7 +177,7 @@ func (suite *PlanTestSuite) TestPause() {
 	suite.responseStatus = http.StatusOK
 	config.Command = "plan pause"
 
-	pause("deploy", "hello")
+	pause("deploy", "hello", false)
 	expectedOutput := "\"deploy\" plan has been paused.\n"
 	assert.Equal(suite.T(), expectedOutput, suite.capturedOutput.String())
 }
@@ -200,7 +187,7 @@ func (suite *PlanTestSuite) TestPauseBadName() {
 	suite.responseStatus = http.StatusNotFound
 	config.Command = "plan pause"
 
-	err := pause("bad-name", "")
+	err := pause("bad-name", "", false)
 
 	expectedOutput := "Plan, phase and/or step does not exist."
 	assert.Equal(suite.T(), string(expectedOutput), err.Error())
@@ -211,7 +198,7 @@ func (suite *PlanTestSuite) TestPauseBadPhase() {
 	suite.responseStatus = http.StatusNotFound
 	config.Command = "plan pause"
 
-	err := pause("deploy", "bad-phase")
+	err := pause("deploy", "bad-phase", false)
 
 	expectedOutput := "Plan, phase and/or step does not exist."
 	assert.Equal(suite.T(), string(expectedOutput), err.Error())
@@ -222,7 +209,7 @@ func (suite *PlanTestSuite) TestPauseAlreadyPaused() {
 	suite.responseStatus = http.StatusAlreadyReported
 	config.Command = "plan pause"
 
-	err := pause("deploy", "hello")
+	err := pause("deploy", "hello", false)
 
 	expectedOutput := "Cannot execute command. Command has already been issued or the plan has completed."
 	assert.Equal(suite.T(), string(expectedOutput), err.Error())
@@ -233,7 +220,7 @@ func (suite *PlanTestSuite) TestPauseAlreadyCompleted() {
 	suite.responseStatus = http.StatusAlreadyReported
 	config.Command = "plan pause"
 
-	err := pause("deploy", "hello")
+	err := pause("deploy", "hello", false)
 
 	expectedOutput := "Cannot execute command. Command has already been issued or the plan has completed."
 	assert.Equal(suite.T(), string(expectedOutput), err.Error())
@@ -244,7 +231,7 @@ func (suite *PlanTestSuite) TestResume() {
 	suite.responseStatus = http.StatusOK
 	config.Command = "plan resume"
 
-	resume("deploy", "hello")
+	resume("deploy", "hello", false)
 
 	expectedOutput := "\"deploy\" plan has been resumed.\n"
 	assert.Equal(suite.T(), string(expectedOutput), suite.capturedOutput.String())
@@ -255,7 +242,7 @@ func (suite *PlanTestSuite) TestResumeBadPlan() {
 	suite.responseStatus = http.StatusNotFound
 	config.Command = "plan resume"
 
-	err := resume("bad-name", "")
+	err := resume("bad-name", "", false)
 
 	expectedOutput := "Plan, phase and/or step does not exist."
 	assert.Equal(suite.T(), string(expectedOutput), err.Error())
@@ -266,7 +253,7 @@ func (suite *PlanTestSuite) TestResumeBadPhase() {
 	suite.responseStatus = http.StatusNotFound
 	config.Command = "plan resume"
 
-	err := resume("deploy", "bad-phase")
+	err := resume("deploy", "bad-phase", false)
 
 	expectedOutput := "Plan, phase and/or step does not exist."
 	assert.Equal(suite.T(), string(expectedOutput), err.Error())
@@ -277,7 +264,7 @@ func (suite *PlanTestSuite) TestResumeInProgress() {
 	suite.responseStatus = http.StatusAlreadyReported
 	config.Command = "plan resume"
 
-	err := resume("deploy", "hello")
+	err := resume("deploy", "hello", false)
 
 	expectedOutput := "Cannot execute command. Command has already been issued or the plan has completed."
 	assert.Equal(suite.T(), string(expectedOutput), err.Error())
@@ -288,7 +275,7 @@ func (suite *PlanTestSuite) TestResumeAlreadyCompleted() {
 	suite.responseStatus = http.StatusAlreadyReported
 	config.Command = "plan resume"
 
-	err := resume("deploy", "hello")
+	err := resume("deploy", "hello", false)
 
 	expectedOutput := "Cannot execute command. Command has already been issued or the plan has completed."
 	assert.Equal(suite.T(), string(expectedOutput), err.Error())

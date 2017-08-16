@@ -29,8 +29,7 @@ func printMessageAndExit(format string, a ...interface{}) (int, error) {
 }
 
 func printResponseError(response *http.Response) {
-	PrintMessage("HTTP %s Query for %s failed: %s",
-		response.Request.Method, response.Request.URL, response.Status)
+	PrintMessage(createResponseError(response).Error())
 }
 
 func createResponseError(response *http.Response) error {

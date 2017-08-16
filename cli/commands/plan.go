@@ -3,12 +3,9 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"strings"
-
-	"net/http"
 
 	"github.com/mesosphere/dcos-commons/cli/client"
 	"github.com/mesosphere/dcos-commons/cli/config"
@@ -51,44 +48,32 @@ func getPlanParameterPayload(parameters []string) (string, error) {
 	return string(jsonVal), nil
 }
 
-func (cmd *planHandler) getPlanName() string {
-	if len(cmd.PlanName) > 0 {
-		return cmd.PlanName
-	}
-	return "deploy"
-}
-
 type plansResponse struct {
 	Message string `json:"message"`
+	Elements []plansResponseElement `json:"elements"`
+}
+type plansResponseElement struct {
+	Name string `json:"name"`
+	Id   string `json:"id"`
+	Type string `json:"type"`
 }
 
-func parseJSONResponse(jsonBytes []byte) bool {
+func printPlansResponse(command string, rawResponse []byte, rawJSON bool) {
+	if rawJSON {
+		client.PrintMessage(string(rawResponse))
+	}
+
+	// Try to parse as JSON
 	var response plansResponse
-	err := json.Unmarshal(jsonBytes, &response)
-	if err != nil {
-		client.PrintMessage("Could not decode response: %s", err)
-		return false
-	}
-	if len(response.Message) > 0 {
-		// we're just checking that we were able to set the message
-		// since json.Unmarshal will still work as long as the original
-		// []byte object is a well formed JSON string.
-		return true
-	}
-	return false
-}
-
-func checkPlansResponse(response *http.Response, body []byte) error {
-	switch {
-	case response.StatusCode == http.StatusNotFound:
-		if string(body) == "Element not found" {
-			// The scheduler itself is returning the 404 (otherwise we fall through to the default Adminrouter case)
-			return errors.New("Plan, phase and/or step does not exist.")
+	err := json.Unmarshal(rawResponse, &response)
+	if err == nil && len(response.Message) > 0 {
+		client.PrintMessage("%s completed: %s\nAffected plan elements:", command, response)
+		for _, elem := range response.Elements {
+			client.PrintMessage("- %s (%s, %s)", elem.Name, elem.Type, elem.Id)
 		}
-	case response.StatusCode == http.StatusAlreadyReported:
-		return errors.New("Cannot execute command. Command has already been issued or the plan has completed.")
+	} else {
+		client.PrintMessage(string(rawResponse))
 	}
-	return nil
 }
 
 func getQueryWithPhaseAndStep(phase, step string) url.Values {
@@ -102,55 +87,33 @@ func getQueryWithPhaseAndStep(phase, step string) url.Values {
 	return query
 }
 
-func forceComplete(planName, phase, step string) {
+func forceComplete(planName, phase, step string, rawJSON bool) {
 	query := getQueryWithPhaseAndStep(phase, step)
-	client.SetCustomResponseCheck(checkPlansResponse)
 	responseBytes, err := client.HTTPServicePostQuery(fmt.Sprintf("v1/plans/%s/forceComplete", planName), query.Encode())
 	if err != nil {
 		client.PrintMessageAndExit(err.Error())
 	}
-	if parseJSONResponse(responseBytes) {
-		client.PrintMessage("\"%s\" plan: step \"%s\" in phase \"%s\" has been forced to complete.", planName, step, phase)
-	} else {
-		client.PrintMessage("\"%s\" plan: step \"%s\" in phase \"%s\" could not be forced to complete.", planName, step, phase)
-	}
+	printPlansResponse("complete", responseBytes, rawJSON)
 }
 
 func (cmd *planHandler) handleForceComplete(a *kingpin.Application, e *kingpin.ParseElement, c *kingpin.ParseContext) error {
 	config.Command = c.SelectedCommand.FullCommand()
-	forceComplete(cmd.getPlanName(), cmd.Phase, cmd.Step)
+	forceComplete(cmd.PlanName, cmd.Phase, cmd.Step, cmd.RawJSON)
 	return nil
 }
 
-func restart(planName, phase, step string) {
+func restart(planName, phase, step string, rawJSON bool) {
 	query := getQueryWithPhaseAndStep(phase, step)
-	client.SetCustomResponseCheck(checkPlansResponse)
 	responseBytes, err := client.HTTPServicePostQuery(fmt.Sprintf("v1/plans/%s/restart", planName), query.Encode())
 	if err != nil {
 		client.PrintMessageAndExit(err.Error())
 	}
-	if parseJSONResponse(responseBytes) {
-		if step == "" && phase == "" {
-			client.PrintMessage("\"%s\" plan has been restarted.", planName)
-		} else if step == "" {
-			client.PrintMessage("\"%s\" plan: phase \"%s\" has been restarted.", planName, phase)
-		} else {
-			client.PrintMessage("\"%s\" plan: step \"%s\" in phase \"%s\" has been restarted.", planName, step, phase)
-		}
-	} else {
-		if step == "" && phase == "" {
-			client.PrintMessage("\"%s\" plan could not be restarted.", planName)
-		} else if step == "" {
-			client.PrintMessage("\"%s\" plan: phase \"%s\" could not be restarted.", planName, phase)
-		} else {
-			client.PrintMessage("\"%s\" plan: step \"%s\" in phase \"%s\" could not be restarted.", planName, step, phase)
-		}
-	}
+	printPlansResponse("restart", responseBytes, rawJSON)
 }
 
 func (cmd *planHandler) handleForceRestart(a *kingpin.Application, e *kingpin.ParseElement, c *kingpin.ParseContext) error {
 	config.Command = c.SelectedCommand.FullCommand()
-	restart(cmd.getPlanName(), cmd.Phase, cmd.Step)
+	restart(cmd.PlanName, cmd.Phase, cmd.Step, cmd.RawJSON)
 	return nil
 }
 
@@ -164,48 +127,38 @@ func (cmd *planHandler) handleList(a *kingpin.Application, e *kingpin.ParseEleme
 	return nil
 }
 
-func pause(planName, phase string) error {
+func pause(planName, phase string, rawJSON bool) error {
 	query := getQueryWithPhaseAndStep(phase, "")
-	client.SetCustomResponseCheck(checkPlansResponse)
 	responseBytes, err := client.HTTPServicePostQuery(fmt.Sprintf("v1/plans/%s/interrupt", planName), query.Encode())
 	if err != nil {
 		return err
 	}
-	if parseJSONResponse(responseBytes) {
-		client.PrintMessage("\"%s\" plan has been paused.", planName)
-	} else {
-		client.PrintMessage("\"%s\" plan could not be paused.", planName)
-	}
+	printPlansResponse("pause", responseBytes, rawJSON)
 	return nil
 }
 
 func (cmd *planHandler) handlePause(a *kingpin.Application, e *kingpin.ParseElement, c *kingpin.ParseContext) error {
 	config.Command = c.SelectedCommand.FullCommand()
-	err := pause(cmd.getPlanName(), cmd.Phase)
+	err := pause(cmd.PlanName, cmd.Phase, cmd.RawJSON)
 	if err != nil {
 		client.PrintMessageAndExit(err.Error())
 	}
 	return nil
 }
 
-func resume(planName, phase string) error {
+func resume(planName, phase string, rawJSON bool) error {
 	query := getQueryWithPhaseAndStep(phase, "")
-	client.SetCustomResponseCheck(checkPlansResponse)
 	responseBytes, err := client.HTTPServicePostQuery(fmt.Sprintf("v1/plans/%s/continue", planName), query.Encode())
 	if err != nil {
 		return err
 	}
-	if parseJSONResponse(responseBytes) {
-		client.PrintMessage("\"%s\" plan has been resumed.", planName)
-	} else {
-		client.PrintMessage("\"%s\" plan could not be resumed.", planName)
-	}
+	printPlansResponse("resume", responseBytes, rawJSON)
 	return nil
 }
 
 func (cmd *planHandler) handleResume(a *kingpin.Application, e *kingpin.ParseElement, c *kingpin.ParseContext) error {
 	config.Command = c.SelectedCommand.FullCommand()
-	err := resume(cmd.getPlanName(), cmd.Phase)
+	err := resume(cmd.PlanName, cmd.Phase, cmd.RawJSON)
 	if err != nil {
 		client.PrintMessageAndExit(err.Error())
 	}
@@ -222,8 +175,7 @@ func (cmd *planHandler) handleStart(a *kingpin.Application, e *kingpin.ParseElem
 		}
 		payload = parameterPayload
 	}
-	client.SetCustomResponseCheck(checkPlansResponse)
-	responseBytes, err := client.HTTPServicePostData(fmt.Sprintf("v1/plans/%s/start", cmd.PlanName), payload, "application/json")
+	responseBytes, err := client.HTTPServicePostJSON(fmt.Sprintf("v1/plans/%s/start", cmd.PlanName), payload)
 	if err != nil {
 		client.PrintMessageAndExit(err.Error())
 	}
@@ -232,7 +184,6 @@ func (cmd *planHandler) handleStart(a *kingpin.Application, e *kingpin.ParseElem
 }
 
 func printStatus(planName string, rawJSON bool) {
-	client.SetCustomResponseCheck(checkPlansResponse)
 	responseBytes, err := client.HTTPServiceGet(fmt.Sprintf("v1/plans/%s", planName))
 	if err != nil {
 		client.PrintMessageAndExit(err.Error())
@@ -246,13 +197,12 @@ func printStatus(planName string, rawJSON bool) {
 
 func (cmd *planHandler) handleStatus(a *kingpin.Application, e *kingpin.ParseElement, c *kingpin.ParseContext) error {
 	config.Command = c.SelectedCommand.FullCommand()
-	printStatus(cmd.getPlanName(), cmd.RawJSON)
+	printStatus(cmd.PlanName, cmd.RawJSON)
 	return nil
 }
 
 func (cmd *planHandler) handleStop(a *kingpin.Application, e *kingpin.ParseElement, c *kingpin.ParseContext) error {
 	config.Command = c.SelectedCommand.FullCommand()
-	client.SetCustomResponseCheck(checkPlansResponse)
 	responseBytes, err := client.HTTPServicePost(fmt.Sprintf("v1/plans/%s/stop", cmd.PlanName))
 	if err != nil {
 		client.PrintMessageAndExit(err.Error())
@@ -268,35 +218,35 @@ func HandlePlanSection(app *kingpin.Application) {
 	plan := app.Command("plan", "Query service plans")
 
 	forceComplete := plan.Command("force-complete", "Force complete a specific step in the provided phase").Alias("force").Action(cmd.handleForceComplete)
-	forceComplete.Arg("plan", "Name of the plan to force complete").Required().StringVar(&cmd.PlanName)
-	forceComplete.Arg("phase", "Name or UUID of the phase containing the provided step").Required().StringVar(&cmd.Phase)
-	forceComplete.Arg("step", "Name or UUID of step to be restarted").Required().StringVar(&cmd.Step)
+	forceComplete.Arg("plan", "Name of the plan to force complete").Required().Default("deploy").StringVar(&cmd.PlanName)
+	forceComplete.Arg("phase", "Name or UUID of the phase containing the provided step").StringVar(&cmd.Phase)
+	forceComplete.Arg("step", "Name or UUID of step to be restarted").StringVar(&cmd.Step)
 
 	forceRestart := plan.Command("force-restart", "Restart a deploy plan, or specific step in the provided phase").Alias("restart").Action(cmd.handleForceRestart)
-	forceRestart.Arg("plan", "Name of the plan to restart").Required().StringVar(&cmd.PlanName)
-	forceRestart.Arg("phase", "Name or UUID of the phase containing the provided step").StringVar(&cmd.Phase) // TODO optional
+	forceRestart.Arg("plan", "Name of the plan to restart").Required().Default("deploy").StringVar(&cmd.PlanName)
+	forceRestart.Arg("phase", "Name or UUID of the phase containing the provided step").StringVar(&cmd.Phase)
 	forceRestart.Arg("step", "Name or UUID of step to be restarted").StringVar(&cmd.Step)
 
 	plan.Command("list", "Show all plans for this service").Action(cmd.handleList)
 
 	pause := plan.Command("pause", "Pause the deploy plan, or the plan with the provided name, or a specific phase in that plan with the provided name or UUID").Alias("interrupt").Action(cmd.handlePause)
-	pause.Arg("plan", "Name of the plan to pause").StringVar(&cmd.PlanName)
+	pause.Arg("plan", "Name of the plan to pause").Required().Default("deploy").StringVar(&cmd.PlanName)
 	pause.Arg("phase", "Name or UUID of a specific phase to pause").StringVar(&cmd.Phase)
 
 	resume := plan.Command("resume", "Resume the deploy plan, or the plan with the provided name, or a specific phase in that plan with the provided name or UUID").Alias("continue").Action(cmd.handleResume)
-	resume.Arg("plan", "Name of the plan to resume").StringVar(&cmd.PlanName)
-	resume.Arg("phase", "Name or UUID of a specific phase to continue").StringVar(&cmd.Phase)
+	resume.Arg("plan", "Name of the plan to resume").Required().Default("deploy").StringVar(&cmd.PlanName)
+	resume.Arg("phase", "Name or UUID of a specific phase to resume").StringVar(&cmd.Phase)
 
 	start := plan.Command("start", "Start the plan with the provided name, with optional envvars to supply to task").Action(cmd.handleStart)
-	start.Arg("plan", "Name of the plan to start").Required().StringVar(&cmd.PlanName)
+	start.Arg("plan", "Name of the plan to start").Required().Default("deploy").StringVar(&cmd.PlanName)
 	start.Flag("params", "Envvar definition in VAR=value form; can be repeated for multiple variables").Short('p').StringsVar(&cmd.Parameters)
 
 	status := plan.Command("status", "Display the deploy plan or the plan with the provided name").Alias("show").Action(cmd.handleStatus)
-	status.Arg("plan", "Name of the plan to show").StringVar(&cmd.PlanName)
+	status.Arg("plan", "Name of the plan to show").Required().Default("deploy").StringVar(&cmd.PlanName)
 	status.Flag("json", "Show raw JSON response instead of user-friendly tree").BoolVar(&cmd.RawJSON)
 
 	stop := plan.Command("stop", "Stop the plan with the provided name").Action(cmd.handleStop)
-	stop.Arg("plan", "Name of the plan to stop").Required().StringVar(&cmd.PlanName)
+	stop.Arg("plan", "Name of the plan to stop").Required().Default("deploy").StringVar(&cmd.PlanName)
 }
 
 func toStatusTree(planName string, planJSONBytes []byte) string {

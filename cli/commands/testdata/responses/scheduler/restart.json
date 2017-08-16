@@ -1,7 +1,7 @@
 {
   "message": "Received cmd: restart",
   "elements": [
-    { "name": "foo", "id": "some-id" },
-    { "name": "bar", "id": "other-id" }
+    { "name": "foo", "type": "DeploymentStep", "id": "some-id" },
+    { "name": "bar", "type": "DefaultPhase", "id": "other-id" }
   ]
 }
