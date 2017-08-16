@@ -1,10 +1,13 @@
 package com.mesosphere.sdk.scheduler.plan;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.mesosphere.sdk.scheduler.DefaultObservable;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -29,8 +32,7 @@ public abstract class AbstractStep extends DefaultObservable implements Step {
         this.name = name;
         this.status = status;
         this.interrupted = false;
-
-        setStatus(status); // Log initial status
+        logger.info("{}: Initialized status to: {}", getName(), status);
     }
 
     @Override
@@ -54,37 +56,64 @@ public abstract class AbstractStep extends DefaultObservable implements Step {
     }
 
     /**
-     * Updates the status setting and logs the outcome. Should only be called either by tests, by
-     * {@code this}, or by subclasses.
+     * Updates the status setting and logs the outcome. Should only be called either by tests, by {@code this}, or by
+     * subclasses.
      *
      * @param newStatus the new status to be set
+     * @return the prior status before the call
      */
-    protected void setStatus(Status newStatus) {
+    protected Status setStatus(Status newStatus) {
         Status oldStatus;
         synchronized (statusLock) {
             oldStatus = status;
             status = newStatus;
-            logger.info("{}: changed status from: {} to: {} (interrupted={})",
-                    getName(), oldStatus, newStatus, interrupted);
+            if (oldStatus != newStatus) {
+                logger.info("{}: changed status from: {} to: {} (interrupted={})",
+                        getName(), oldStatus, newStatus, interrupted);
+            } else {
+                logger.info("{}: no change to status: {} (interrupted={})",
+                        getName(), oldStatus, newStatus, interrupted);
+            }
         }
         // Just in case, avoid possibility of deadlocks by calling out from outside the lock:
-        if (!Objects.equals(oldStatus, newStatus)) {
+        if (oldStatus != newStatus) {
             notifyObservers();
         }
+        return oldStatus;
+    }
+
+    /**
+     * Calls {@link #setStatus(Status)} with the provided status and returns {@code this} if the call resulted in a
+     * modification.
+     */
+    @VisibleForTesting
+    protected Collection<? extends Element> setStatusGetChanged(Status newStatus) {
+        return setStatus(newStatus) == newStatus
+                ? Collections.emptyList() // no change
+                : Collections.singleton(this); // changed
+    }
+
+    /**
+     * Updates the interrupted bit with the specified value and returns {@code this} if the interrupted bit was changed
+     * as a result.
+     */
+    private boolean setInterruptedGetChanged(boolean interrupt) {
+        boolean wasInterrupted;
+        synchronized (statusLock) {
+            wasInterrupted = interrupted;
+            interrupted = interrupt;
+        }
+        return wasInterrupted != interrupt;
     }
 
     @Override
-    public void interrupt() {
-        synchronized (statusLock) {
-            interrupted = true;
-        }
+    public boolean interrupt() {
+        return setInterruptedGetChanged(true);
     }
 
     @Override
-    public void proceed() {
-        synchronized (statusLock) {
-            interrupted = false;
-        }
+    public boolean proceed() {
+        return setInterruptedGetChanged(false);
     }
 
     @Override
@@ -95,15 +124,15 @@ public abstract class AbstractStep extends DefaultObservable implements Step {
     }
 
     @Override
-    public void restart() {
+    public Collection<? extends Element> restart() {
         logger.warn("Restarting step: '{} [{}]'", getName(), getId());
-        setStatus(Status.PENDING);
+        return setStatusGetChanged(Status.PENDING);
     }
 
     @Override
-    public void forceComplete() {
+    public Collection<? extends Element> forceComplete() {
         logger.warn("Forcing completion of step: '{} [{}]'", getName(), getId());
-        setStatus(Status.COMPLETE);
+        return setStatusGetChanged(Status.COMPLETE);
     }
 
     @Override

@@ -89,7 +89,7 @@ public class PlansResource extends PrettyJsonResource {
 
     /**
      * Idempotently stops a plan.  If a plan is in progress, it is interrupted and the plan is reset such that all
-     * elements are pending.  If a plan is already stopped, it has no effect.
+     * elements are waiting/interrupted.  If a plan is already stopped, it has no effect.
      */
     @POST
     @Path("/plans/{planName}/stop")
@@ -100,9 +100,11 @@ public class PlansResource extends PrettyJsonResource {
         }
 
         Plan plan = planManagerOptional.get().getPlan();
-        plan.interrupt();
-        plan.restart();
-        return jsonOkResponse(getCommandResult("stop", Arrays.asList(plan)));
+
+        boolean interruptChanged = plan.interrupt();
+        boolean restartChanged = !plan.restart().isEmpty();
+        return jsonOkResponse(getCommandResult("stop",
+                interruptChanged || restartChanged ? Collections.singleton(plan) : Collections.emptyList()));
     }
 
     @POST
@@ -115,22 +117,19 @@ public class PlansResource extends PrettyJsonResource {
             return planNotFoundResponse(planName);
         }
 
-        List<Element> elements =
-                getPlanElements(planManagerOptional.get().getPlan(), Optional.ofNullable(phase), Optional.empty());
-        if (elements.isEmpty()) {
+        Optional<Element> elementOptional =
+                getPlanElement(planManagerOptional.get().getPlan(), Optional.ofNullable(phase), Optional.empty());
+        if (!elementOptional.isPresent()) {
             return phaseNotFoundResponse(planName, phase);
         }
+        Element element = elementOptional.get();
 
-        List<Element> elementsToContinue = elements.stream()
-                .filter(elem -> !elem.isInProgress() && !elem.isComplete())
-                .collect(Collectors.toList());
-        if (elementsToContinue.isEmpty()) {
-            return alreadyReportedResponse();
+        if (element.isComplete() || element.isInProgress()) {
+            return noChangeResponse(element);
         }
 
-        elementsToContinue.forEach(Element::proceed);
-
-        return jsonOkResponse(getCommandResult("continue", elementsToContinue));
+        return jsonOkResponse(getCommandResult("continue",
+                element.proceed() ? Collections.singleton(element) : Collections.emptyList()));
     }
 
     @POST
@@ -143,22 +142,19 @@ public class PlansResource extends PrettyJsonResource {
             return planNotFoundResponse(planName);
         }
 
-        List<Element> elements =
-                getPlanElements(planManagerOptional.get().getPlan(), Optional.ofNullable(phase), Optional.empty());
-        if (elements.isEmpty()) {
+        Optional<Element> elementOptional =
+                getPlanElement(planManagerOptional.get().getPlan(), Optional.ofNullable(phase), Optional.empty());
+        if (!elementOptional.isPresent()) {
             return phaseNotFoundResponse(planName, phase);
         }
+        Element element = elementOptional.get();
 
-        List<Element> elementsToInterrupt = elements.stream()
-                .filter(elem -> !elem.isComplete() && !elem.isInterrupted())
-                .collect(Collectors.toList());
-        if (elementsToInterrupt.isEmpty()) {
-            return alreadyReportedResponse();
+        if (element.isComplete() || element.isInterrupted()) {
+            return noChangeResponse(element);
         }
 
-        elementsToInterrupt.forEach(Element::interrupt);
-
-        return jsonOkResponse(getCommandResult("interrupt", elementsToInterrupt));
+        return jsonOkResponse(getCommandResult("interrupt",
+                element.interrupt() ? Collections.singleton(element) : Collections.emptyList()));
     }
 
     @POST
@@ -176,22 +172,18 @@ public class PlansResource extends PrettyJsonResource {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        List<Element> elements = getPlanElements(
+        Optional<Element> elementOptional = getPlanElement(
                 planManagerOptional.get().getPlan(), Optional.ofNullable(phase), Optional.ofNullable(step));
-        if (elements.isEmpty()) {
+        if (!elementOptional.isPresent()) {
             return phaseOrStepNotFoundResponse(planName, phase, step);
         }
+        Element element = elementOptional.get();
 
-        List<Element> elementsToComplete = elements.stream()
-                .filter(elem -> !elem.isComplete())
-                .collect(Collectors.toList());
-        if (elementsToComplete.isEmpty()) {
-            return alreadyReportedResponse();
+        if (element.isComplete()) {
+            return noChangeResponse(element);
         }
 
-        elementsToComplete.forEach(Element::forceComplete);
-
-        return jsonOkResponse(getCommandResult("forceComplete", elementsToComplete));
+        return jsonOkResponse(getCommandResult("forceComplete", element.forceComplete()));
     }
 
     @POST
@@ -209,16 +201,16 @@ public class PlansResource extends PrettyJsonResource {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        List<Element> elements = getPlanElements(
+        Optional<Element> elementOptional = getPlanElement(
                 planManagerOptional.get().getPlan(), Optional.ofNullable(phase), Optional.ofNullable(step));
-        if (elements.isEmpty()) {
+        if (!elementOptional.isPresent()) {
             return phaseOrStepNotFoundResponse(planName, phase, step);
         }
+        Element element = elementOptional.get();
 
-        elements.forEach(Element::restart);
-        elements.forEach(Element::proceed);
-
-        return jsonOkResponse(getCommandResult("restart", elements));
+        Collection<? extends Element> modifiedElements = element.restart(); // set element status(es) to pending
+        element.proceed(); // also clear interrupted bit on element, if set
+        return jsonOkResponse(getCommandResult("restart", modifiedElements));
     }
 
     @GET
@@ -270,72 +262,82 @@ public class PlansResource extends PrettyJsonResource {
      * <li>If the phase and the step are both specified: Returns matching step, if any</li>
      * </ul>
      */
-    private static List<Element> getPlanElements(
+    private static Optional<Element> getPlanElement(
             Plan plan, Optional<String> phaseIdOrName, Optional<String> stepIdOrName) {
         if (phaseIdOrName.isPresent()) {
-            List<Phase> phases = getPhases(plan, phaseIdOrName.get());
-            if (stepIdOrName.isPresent()) {
-                // Return step, if found
-                Optional<Step> step = getStep(phases, stepIdOrName.get());
-                return step.isPresent() ? Arrays.asList(step.get()) : Collections.emptyList();
+            Optional<Phase> phase = getPhase(plan, phaseIdOrName.get());
+            if (!phase.isPresent()) {
+                return Optional.empty();
             }
-            // Return matching phase(s), with explicit generic type conversion for a happy compiler
-            List<Element> elements = new ArrayList<>();
-            elements.addAll(phases);
-            return elements;
+            if (stepIdOrName.isPresent()) {
+                // Find step, convert Optional<Step> to Optional<Element>
+                return convert(getStep(phase.get(), stepIdOrName.get()));
+            }
+            // Phase found, convert Optional<Phase> to Optional<Element>
+            return convert(getStep(phase.get(), stepIdOrName.get()));
         } else {
             if (stepIdOrName.isPresent()) {
+                // Caller should have checked this, but just in case..
                 throw new IllegalStateException(String.format(
                         "Phase must be provided when step (%s) is provided", stepIdOrName.get()));
             }
-            // Return plan
-            return Arrays.asList(plan);
+            // Just return plan
+            return Optional.of(plan);
         }
     }
 
+    private static Optional<Element> convert(Optional<? extends Element> o) {
+        return Optional.ofNullable(o.orElse(null));
+    }
+
     /**
-     * Returns the phases which match the provided filter, or an empty list if none match.
+     * Returns the phase which matches the provided filter, or an empty {@link Optional} if none/multiple match.
      *
      * @param phaseIdOrName a valid UUID or name of the phases to search for in the {@code plan}
      */
-    private static List<Phase> getPhases(Plan plan, String phaseIdOrName) {
+    private static Optional<Phase> getPhase(Plan plan, String phaseIdOrName) {
+        List<Phase> phases;
         try {
             UUID phaseId = UUID.fromString(phaseIdOrName);
-            return plan.getChildren().stream()
+            phases = plan.getChildren().stream()
                     .filter(phase -> phase.getId().equals(phaseId))
                     .collect(Collectors.toList());
         } catch (IllegalArgumentException e) {
             // couldn't parse as UUID: fall back to treating phase identifier as a name
-            return plan.getChildren().stream()
+            phases = plan.getChildren().stream()
                     .filter(phase -> phase.getName().equals(phaseIdOrName))
                     .collect(Collectors.toList());
+        }
+        if (phases.size() == 1) {
+            return Optional.of(phases.get(0));
+        } else {
+            LOGGER.warn("Expected 1 phase '{}' in plan {}, got: {}", phaseIdOrName, plan.getName(), phases);
+            return Optional.empty();
         }
     }
 
     /**
-     * Returns the step which match the provided filter, or an empty {@link Optional} if none match or multiple match.
+     * Returns the step which matches the provided filter, or an empty {@link Optional} if none/multiple match.
      *
      * @param stepIdOrName a valid UUID or name of the step to search for in the {@code phases}
      */
-    private static Optional<Step> getStep(List<Phase> phases, String stepIdOrName) {
+    private static Optional<Step> getStep(Phase phase, String stepIdOrName) {
         List<Step> steps;
         try {
             UUID stepId = UUID.fromString(stepIdOrName);
-            steps = phases.stream().map(ParentElement::getChildren)
-                    .flatMap(List::stream)
+            steps = phase.getChildren().stream()
                     .filter(step -> step.getId().equals(stepId))
                     .collect(Collectors.toList());
         } catch (IllegalArgumentException e) {
             // couldn't parse as UUID: fall back to treating step identifier as a name
-            steps = phases.stream().map(ParentElement::getChildren)
-                    .flatMap(List::stream)
+            steps = phase.getChildren().stream()
                     .filter(step -> step.getName().equals(stepIdOrName))
                     .collect(Collectors.toList());
         }
         if (steps.size() == 1) {
             return Optional.of(steps.get(0));
         } else {
-            LOGGER.error("Expected 1 step '{}' across {} phases, got: {}", stepIdOrName, phases.size(), steps);
+            LOGGER.warn("Expected 1 step '{}' in phase {}, got: {}", stepIdOrName, phase.getName(), steps);
             return Optional.empty();
         }
     }
@@ -373,7 +375,7 @@ public class PlansResource extends PrettyJsonResource {
         }
     }
 
-    private static JSONObject getCommandResult(String command, List<Element> elements) {
+    private static JSONObject getCommandResult(String command, Collection<? extends Element> elements) {
         JSONObject result = new JSONObject();
         result.put("message", String.format("Received cmd: %s", command));
         for (Element elem : elements) {
@@ -407,14 +409,16 @@ public class PlansResource extends PrettyJsonResource {
      */
     private static Response phaseOrStepNotFoundResponse(String plan, String phase, String step) {
         return plainResponse(
-                String.format("Phase '%s' or step '%s' not found in plan '%s'", phase, step, plan),
+                String.format("Phase '%s' or step '%s' not found in plan '%s'. "
+                        + "If multiple elements with that name exist, you must use the UUID", phase, step, plan),
                 Response.Status.NOT_FOUND);
     }
 
     /**
      * Returns a "208 Already reported" response.
      */
-    private static Response alreadyReportedResponse() {
-        return plainResponse("Elements are already in requested state, nothing to do", 208);
+    private static Response noChangeResponse(Element element) {
+        return plainResponse(String.format(
+                "Element '%s' is already in state %s, nothing to do", element.getName(), element.getStatus()), 208);
     }
 }

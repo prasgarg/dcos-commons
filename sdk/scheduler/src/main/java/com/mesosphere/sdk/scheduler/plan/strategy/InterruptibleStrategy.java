@@ -14,17 +14,21 @@ public abstract class InterruptibleStrategy<C extends Element> implements Strate
     private AtomicBoolean interrupted = new AtomicBoolean(false);
 
     @Override
-    public void interrupt() {
-        interrupted.set(true);
+    public boolean interrupt() {
+        return setStateReturnChanged(true);
     }
 
     @Override
-    public void proceed() {
-        interrupted.set(false);
+    public boolean proceed() {
+        return setStateReturnChanged(false);
     }
 
     @Override
     public boolean isInterrupted() {
         return interrupted.get();
+    }
+
+    private boolean setStateReturnChanged(boolean interrupt) {
+        return interrupted.getAndSet(interrupt) == interrupt;
     }
 }

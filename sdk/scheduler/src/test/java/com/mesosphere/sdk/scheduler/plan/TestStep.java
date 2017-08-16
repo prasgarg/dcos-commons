@@ -63,19 +63,9 @@ public class TestStep extends AbstractStep {
         return Collections.emptyList();
     }
 
-    @Override
-    public void restart() {
-        setStatus(Status.PENDING);
-    }
-
-    @Override
-    public void forceComplete() {
-        setStatus(Status.COMPLETE);
-    }
-
     @VisibleForTesting
-    public void setStatus(Status status) {
-        super.setStatus(status);
+    public Status setStatus(Status status) {
+        return super.setStatus(status);
     }
 
     @Override

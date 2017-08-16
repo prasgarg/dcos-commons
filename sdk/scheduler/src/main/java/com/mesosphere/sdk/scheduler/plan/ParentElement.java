@@ -31,15 +31,17 @@ public interface ParentElement<C extends Element> extends Element {
     Strategy<C> getStrategy();
 
     @Override
-    default void interrupt() {
-        getStrategy().interrupt();
+    default boolean interrupt() {
+        boolean changed = getStrategy().interrupt();
         notifyObservers();
+        return changed;
     }
 
     @Override
-    default void proceed() {
-        getStrategy().proceed();
+    default boolean proceed() {
+        boolean changed = getStrategy().proceed();
         notifyObservers();
+        return changed;
     }
 
     default boolean isInterrupted() {
@@ -68,20 +70,32 @@ public interface ParentElement<C extends Element> extends Element {
         children.forEach(element -> element.update(taskStatus));
     }
 
-    /** Restarts children. */
+    /**
+     * Restarts children and returns all children that were modified by the operation.
+     */
     @Override
-    default void restart() {
+    default Collection<? extends Element> restart() {
         Collection<? extends Element> children = getChildren();
         LOGGER.info("Restarting elements within {}: {}", getName(), children);
-        children.forEach(element -> element.restart());
+        List<Element> modifiedElements = new ArrayList<>();
+        for (Element element : children) {
+            modifiedElements.addAll(element.restart());
+        }
+        return modifiedElements;
     }
 
-    /** Force completes children. */
+    /**
+     * Force completes children and returns all children that were modified by the operation.
+     */
     @Override
-    default void forceComplete() {
+    default Collection<? extends Element> forceComplete() {
         Collection<? extends Element> children = getChildren();
         LOGGER.info("Forcing completion of elements within {}: {}", getName(), children);
-        children.forEach(element -> element.forceComplete());
+        List<Element> modifiedElements = new ArrayList<>();
+        for (Element element : children) {
+            modifiedElements.addAll(element.forceComplete());
+        }
+        return modifiedElements;
     }
 
     /**

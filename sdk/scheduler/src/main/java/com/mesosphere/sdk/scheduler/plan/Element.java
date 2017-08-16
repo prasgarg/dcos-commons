@@ -37,14 +37,24 @@ public interface Element extends Observable, Interruptible {
     void update(TaskStatus status);
 
     /**
-     * Forcefully restarts the element by putting it into a {@link Status#PENDING} state.
+     * Provides the Element with a set of named string parameters that it can either use on start or provide to
+     * children, if it has any.
      */
-    void restart();
+    default void updateParameters(Map<String, String> parameters) { }
+
+    /**
+     * Forcefully restarts the element by putting it into a {@link Status#PENDING} state.
+     *
+     * @return any elements (including {@code this} and/or child elements) that were modified as a result of the call
+     */
+    Collection<? extends Element> restart();
 
     /**
      * Forcefully marks the element as {@link Status#COMPLETE}, cancelling any work that hasn't started.
+     *
+     * @return any elements (including {@code this} and/or child elements) that were modified as a result of the call
      */
-    void forceComplete();
+    Collection<? extends Element> forceComplete();
 
     /**
      * Returns a list of user-visible descriptive error messages associated with this Element.
@@ -106,12 +116,6 @@ public interface Element extends Observable, Interruptible {
     default boolean isRunning() {
         return getStatus().isRunning();
     }
-
-    /**
-     * Provides the Element with a set of named string parameters that it can either use on start or provide to
-     * children, if it has any.
-     */
-    default void updateParameters(Map<String, String> parameters) { }
 
     /**
      * Returns a reasonable user-visible status message.

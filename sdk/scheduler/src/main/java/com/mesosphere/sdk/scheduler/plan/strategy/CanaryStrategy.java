@@ -85,23 +85,22 @@ public class CanaryStrategy implements Strategy<Step> {
     }
 
     @Override
-    public void interrupt() {
+    public boolean interrupt() {
         Step canaryStep = getNextCanaryStep();
         if (canaryStep != null) {
             // Ignoring interrupt as we are still in canary and therefore already interrupted.
-            return;
+            return false;
         }
-        strategy.interrupt();
+        return strategy.interrupt();
     }
 
     @Override
-    public void proceed() {
+    public boolean proceed() {
         Step canaryStep = getNextCanaryStep();
         if (canaryStep != null) {
-            canaryStep.proceed();
-            return;
+            return canaryStep.proceed();
         }
-        strategy.proceed();
+        return strategy.proceed();
     }
 
     @Override
