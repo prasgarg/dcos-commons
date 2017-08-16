@@ -1,0 +1,6 @@
+pyasn1==0.3.2
+dcoscli==0.4.17
+dcos==0.4.17
+dcos-shakedown==1.4.4
+git+https://github.com/dcos/dcos-test-utils.git@924d84d8b79f39bf6a1cdd8043b0e65fe9171eec
+git+https://github.com/dcos/dcos-launch.git@40bcef8ba9975f8fba6f86d2fc212d1a5f323db8

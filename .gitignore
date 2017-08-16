@@ -23,7 +23,6 @@ tools/helloworld
 tools/template
 
 # idea
-*.i??
 .idea/
 out/
 classes/
