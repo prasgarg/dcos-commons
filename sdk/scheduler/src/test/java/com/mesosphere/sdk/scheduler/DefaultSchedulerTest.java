@@ -36,9 +36,12 @@ import org.junit.contrib.java.lang.system.ExpectedSystemExit;
 import org.junit.rules.DisableOnDebug;
 import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.mockito.*;
 
 import java.io.IOException;
+import java.lang.annotation.Repeatable;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
@@ -57,7 +60,18 @@ import static org.mockito.Mockito.*;
  * This class tests the DefaultScheduler class.
  */
 @SuppressWarnings({"PMD.TooManyStaticImports", "PMD.AvoidUsingHardCodedIP"})
+@RunWith(Parameterized.class)
 public class DefaultSchedulerTest {
+
+    @Parameterized.Parameters
+    public static List<Object[]> data() {
+        return Arrays.asList(new Object[100][0]);
+    }
+
+    public DefaultSchedulerTest() {
+    }
+
+
     @SuppressFBWarnings("URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     @Rule
     public TestRule globalTimeout = new DisableOnDebug(new Timeout(30, TimeUnit.SECONDS));
@@ -202,6 +216,7 @@ public class DefaultSchedulerTest {
                 .build();
         defaultScheduler = new TestScheduler(defaultScheduler, true);
         register();
+        System.out.println("New scheduler");
     }
 
     @Test
@@ -483,6 +498,7 @@ public class DefaultSchedulerTest {
         // Get first Step associated with Task A-0
         Plan plan = defaultScheduler.deploymentPlanManager.getPlan();
         Step stepTaskA0 = plan.getChildren().get(0).getChildren().get(0);
+        System.out.println(stepTaskA0);
         Assert.assertTrue(stepTaskA0.isPending());
 
         // Offer sufficient Resource and wait for its acceptance
@@ -499,8 +515,9 @@ public class DefaultSchedulerTest {
         // Sent TASK_RUNNING status
         statusUpdate(launchedTaskId, Protos.TaskState.TASK_RUNNING);
 
-        // Wait for the Step to become Complete
-        Awaitility.await().atMost(1, TimeUnit.SECONDS).untilCall(to(stepTaskA0).isComplete(), equalTo(true));
+        // To prevent a race for the task to complete extremely quickly, as it might still be STARTING when we get here,
+        // we slightly liberally wait for the Step to become Complete
+        Awaitility.await().atMost(10, TimeUnit.SECONDS).untilCall(to(stepTaskA0).isComplete(), equalTo(true));
         Assert.assertEquals(Arrays.asList(Status.COMPLETE, Status.PENDING, Status.PENDING),
                 PlanTestUtils.getStepStatuses(plan));
 
