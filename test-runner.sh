@@ -53,7 +53,7 @@ for framework in $FRAMEWORK_LIST; do
     fi
 
     echo "Starting test for $framework at "`date`
-    tox -e py35-$framework -- "${pytest_args[@]}"
+    tox -e --sitepackages py35-$framework -- "${pytest_args[@]}"
     echo "Finished test for $framework at "`date`
 done
 

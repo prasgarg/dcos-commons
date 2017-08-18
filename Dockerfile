@@ -20,6 +20,9 @@ RUN apt-get update && apt-get install -y \
     apt-get clean
 # AWS CLI for uploading build artifacts
 RUN pip install awscli
+# Add expected python dependencies
+ADD test_requirements.txt
+RUN pip3 install -r requirements.txt
 # shakedown and dcos-cli require this to output cleanly
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
