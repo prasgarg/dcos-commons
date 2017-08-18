@@ -14,15 +14,14 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     wget \
     zip && \
-    # install go 1.7
     add-apt-repository -y ppa:longsleep/golang-backports && \
     apt-get update && apt-get install -y golang-go && \
     apt-get clean
 # AWS CLI for uploading build artifacts
 RUN pip install awscli
 # Add expected python dependencies
-ADD test_requirements.txt
-RUN pip3 install -r requirements.txt
+ADD test_requirements.txt test_requirements.txt
+RUN pip3 install -r test_requirements.txt
 # shakedown and dcos-cli require this to output cleanly
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
